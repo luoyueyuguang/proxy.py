@@ -1,0 +1,7 @@
+[
+  {"type": "url", "pattern": "forbidden-url"},
+  {"type": "domain", "pattern": "forbidden-domain.com"},
+  {"type": "domain", "pattern": "baidu.com"},
+  {"type": "ip", "pattern": "192\\.168\\.1\\.100"},
+  {"type": "content", "pattern": "forbidden-text"}
+]
