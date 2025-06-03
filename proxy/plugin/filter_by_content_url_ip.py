@@ -16,6 +16,7 @@ import re
 import json
 import logging
 import os
+import urllib.request
 from typing import Any, Dict, List, Optional
 from ..http import httpStatusCodes
 from ..http.proxy import HttpProxyBasePlugin
@@ -33,6 +34,14 @@ flags.add_argument(
     help='过滤内容/URL/IP/域名的json配置文件路径',
 )
 
+#增加从远程URL更新黑名单的功能
+flags.add_argument(
+    '--update-blacklist-from-url',
+    type=str,
+    default='',
+    help='从指定网址下载黑名单并合并到本地特征库，支持简单文本或json格式',
+)
+
 class FilterByContentUrlIpPlugin(HttpProxyBasePlugin):
     """统一过滤插件：支持对文本内容、URL、域名、IP进行过滤，并支持自学习升级特征库。"""
     FEATURE_LOG_PATH = 'proxy/plugin/feature_learn.log'  # 可自定义路径
@@ -40,10 +49,23 @@ class FilterByContentUrlIpPlugin(HttpProxyBasePlugin):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.rules: List[Dict[str, Any]] = []
-        self.config_path = self.flags.filter_content_url_ip_config
-        if self.config_path:
+        # self.config_path = self.flags.filter_content_url_ip_config
+        # if self.config_path:
+        #     with open(self.config_path, 'r', encoding='utf-8') as f:
+        #         self.rules = json.load(f)
+        self.config_path = flags.filter_content_url_ip_config
+        if self.config_path and os.path.exists(self.config_path):
             with open(self.config_path, 'r', encoding='utf-8') as f:
-                self.rules = json.load(f)
+                try:
+                    self.rules = json.load(f)
+                except json.JSONDecodeError as e:
+                    logger.error(f"加载特征库失败: {e}")
+                    self.rules = []
+        else:
+            logger.warning(f"特征库配置文件不存在或无法读取: {self.config_path}")
+            self.rules = []
+        # 如果指定了远程黑名单URL，则尝试更新本地特征库
+        self.update_blacklist_from_url(flags.update_blacklist_from_url) if flags.update_blacklist_from_url else None
 
     def _log_illegal_feature(self, rule_type: str, value: str):
         # 记录被拦截的非法特征，供后续人工或自动分析升级特征库
@@ -102,3 +124,31 @@ class FilterByContentUrlIpPlugin(HttpProxyBasePlugin):
             logger.info('Blocked by content rule in response')
             return memoryview(b'')
         return chunk
+
+    def update_blacklist_from_url(self, url: str):
+        """从指定网址下载黑名单并合并到本地特征库。支持简单文本或json格式。"""
+        try:
+            with urllib.request.urlopen(url, timeout=10) as response:
+                content = response.read().decode('utf-8')
+            # 尝试解析为json，否则按每行一个特征处理
+            try:
+                remote_rules = json.loads(content)
+                if isinstance(remote_rules, list):
+                    for rule in remote_rules:
+                        if rule not in self.rules:
+                            self.rules.append(rule)
+                else:
+                    logger.warning('远程黑名单不是list格式，忽略')
+            except Exception:
+                # 按每行一个域名或IP，加入domain黑名单
+                for line in content.splitlines():
+                    line = line.strip()
+                    if line and not any(r.get('type') == 'domain' and r.get('pattern') == line for r in self.rules):
+                        self.rules.append({'type': 'domain', 'pattern': line})
+            # 保存到本地配置
+            if self.config_path:
+                with open(self.config_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.rules, f, ensure_ascii=False, indent=2)
+            logger.info('已从远程更新黑名单')
+        except Exception as e:
+            logger.error(f'更新黑名单失败: {e}')
