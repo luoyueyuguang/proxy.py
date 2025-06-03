@@ -2653,8 +2653,11 @@ usage: -m [-h] [--tunnel-hostname TUNNEL_HOSTNAME] [--tunnel-port TUNNEL_PORT]
           [--filtered-client-ips FILTERED_CLIENT_IPS]
           [--filtered-url-regex-config FILTERED_URL_REGEX_CONFIG]
           [--filter-content-url-ip-config FILTER_CONTENT_URL_IP_CONFIG]
+          [--update-blacklist-from-url UPDATE_BLACKLIST_FROM_URL]
+          [--max-daily-seconds MAX_DAILY_SECONDS]
+          [--max-session-seconds MAX_SESSION_SECONDS]
 
-proxy.py v2.4.10
+proxy.py v0.1.dev2+g14d9865.d20250603
 
 options:
   -h, --help            show this help message and exit
@@ -2863,6 +2866,12 @@ options:
                         IPv6 addresses.
   --filter-content-url-ip-config FILTER_CONTENT_URL_IP_CONFIG
                         过滤内容/URL/IP/域名的json配置文件路径
+  --update-blacklist-from-url UPDATE_BLACKLIST_FROM_URL
+                        从指定网址下载黑名单并合并到本地特征库，支持简单文本或json格式
+  --max-daily-seconds MAX_DAILY_SECONDS
+                        每个IP每天最大可用秒数，默认3600秒(1小时)
+  --max-session-seconds MAX_SESSION_SECONDS
+                        单次连接最大时长(秒)，默认600秒(10分钟)
 
 Proxy.py not working? Report at:
 https://github.com/abhinavsingh/proxy.py/issues/new

@@ -49,23 +49,14 @@ class FilterByContentUrlIpPlugin(HttpProxyBasePlugin):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.rules: List[Dict[str, Any]] = []
-        # self.config_path = self.flags.filter_content_url_ip_config
-        # if self.config_path:
-        #     with open(self.config_path, 'r', encoding='utf-8') as f:
-        #         self.rules = json.load(f)
-        self.config_path = flags.filter_content_url_ip_config
-        if self.config_path and os.path.exists(self.config_path):
+        self.config_path = self.flags.filter_content_url_ip_config
+        if self.config_path:
+            update_url = getattr(self.flags, 'update_blacklist_from_url', None)
+            if update_url:
+                self.update_blacklist_from_url(update_url)
             with open(self.config_path, 'r', encoding='utf-8') as f:
-                try:
-                    self.rules = json.load(f)
-                except json.JSONDecodeError as e:
-                    logger.error(f"加载特征库失败: {e}")
-                    self.rules = []
-        else:
-            logger.warning(f"特征库配置文件不存在或无法读取: {self.config_path}")
-            self.rules = []
+                self.rules = json.load(f)
         # 如果指定了远程黑名单URL，则尝试更新本地特征库
-        self.update_blacklist_from_url(flags.update_blacklist_from_url) if flags.update_blacklist_from_url else None
 
     def _log_illegal_feature(self, rule_type: str, value: str):
         # 记录被拦截的非法特征，供后续人工或自动分析升级特征库
